@@ -8,10 +8,11 @@ const cors = require("cors"); // For handling Cross-Origin Resource Sharing
 const app = express();
 
 // IMPORTANT: Replace with your actual Lingapos API Key (ideally from Netlify environment variables)
-const LINGAPOS_API_KEY = process.env.LINGAPOS_API_KEY || "YOUR_API_KEY_HERE";
+const LINGAPOS_API_KEY =
+  process.env.LINGAPOS_API_KEY || "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr";
 
 // IMPORTANT: Replace with the actual base URL of the external Lingapos API
-const LINGAPOS_BASE_URL = "https://linga-api.netlify.app"; // This is just an example. Use the correct base URL.
+const LINGAPOS_BASE_URL = "https://api.lingaros.com"; // This is just an example. Use the correct base URL.
 
 // Configure CORS for your Netlify Function
 // This allows your Netlify-deployed frontend to talk to this function.

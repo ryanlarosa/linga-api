@@ -1,0 +1,5 @@
+TO TAKE FROM SALE SUMMARY API 
+
+-Net Sales
+-Discount
+-Total Taxes

@@ -1,0 +1,99 @@
+/* DataFetcher.css */
+
+.data-fetcher-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* Align items at the top initially */
+  min-height: 100vh;
+  background-color: #f4f4f4; /* Light gray background */
+  padding-top: 50px; /* Add some padding at the top */
+}
+
+.data-fetcher {
+  background-color: #fff; /* White form background */
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 300px; /* Same width as Login form */
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.data-fetcher h2 {
+  text-align: center;
+  color: #333; /* Dark gray heading text */
+  margin-bottom: 20px;
+}
+
+.data-fetcher div {
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.data-fetcher label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #555; /* Medium gray label text */
+}
+
+.data-fetcher input[type="date"],
+.data-fetcher button {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd; /* Light gray border for input */
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 16px; /* Consistent font size */
+}
+
+.data-fetcher input[type="date"]:focus,
+.data-fetcher button:focus {
+  outline: none;
+  border-color: #007bff; /* Blue border on focus */
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25); /* Blue shadow on focus */
+}
+
+.data-fetcher button {
+  background-color: #007bff; /* Blue button background */
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.data-fetcher button:hover {
+  background-color: #0056b3; /* Darker blue on hover */
+}
+
+.data-fetcher p {
+  margin-top: 10px;
+  color: #dc3545;
+  text-align: center; /* Center error message */
+}
+
+.loading-container {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.loader {
+  border: 4px solid #f3f3f3;
+  border-radius: 50%;
+  border-top: 4px solid #3498db;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: 20px auto;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

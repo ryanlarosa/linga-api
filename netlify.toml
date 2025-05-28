@@ -1,0 +1,8 @@
+[build]
+  publish = "build" # Assuming your React build output is in the 'build' folder
+  functions = "netlify/functions" # This is where your serverless functions will live
+
+[[redirects]]
+  from = "/v1/*"
+  to = "/.netlify/functions/api/:splat" # Or whatever your function name is
+  status = 200

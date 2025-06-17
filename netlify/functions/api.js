@@ -193,11 +193,9 @@ app.get("/lingapos/store/:storeId/saleSummaryReport", async (req, res) => {
 // Catch-all for any other routes not handled by Express within this function
 // (This will catch paths that start with /v1/ but don't match your defined routes)
 app.use("*", (req, res) => {
-  res
-    .status(404)
-    .json({
-      message: `API endpoint ${req.originalUrl} not found in Netlify Function.`,
-    });
+  res.status(404).json({
+    message: `API endpoint ${req.originalUrl} not found in Netlify Function.`,
+  });
 });
 
 // This is the essential part for Netlify Functions to work with Express

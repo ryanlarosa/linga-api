@@ -12,24 +12,27 @@ const LINGAPOS_API_KEY =
   process.env.LINGAPOS_API_KEY || "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr";
 
 // IMPORTANT: Replace with the actual base URL of the external Lingapos API
-const LINGAPOS_BASE_URL = "https://api.lingaros.com"; // This is just an example. Use the correct base URL.
+// Ensure this is the correct, public endpoint for the Lingapos API itself.
+const LINGAPOS_BASE_URL = "https://api.lingaros.com"; // Verified this from your package.json proxy
 
 // Configure CORS for your Netlify Function
 // This allows your Netlify-deployed frontend to talk to this function.
 // For production, you should restrict origins to your specific Netlify frontend URL.
 app.use(
   cors({
-    origin: true, // Allows all origins for simplicity, but tighten this for production
+    origin: true, // Allows all origins for simplicity, but tighten this for production (e.g., 'https://your-site-name.netlify.app')
     credentials: true, // If you're using cookies or authorization headers
   })
 );
 
 app.use(express.json()); // To parse JSON request bodies if needed
 
-// --- Define your API routes here ---
+// --- Define your API routes here (WITHOUT THE LEADING /v1) ---
+// Because netlify.toml maps /v1/* to this function's root (/.netlify/functions/api/:splat),
+// the :splat passes the path *after* /v1/ directly to Express.
 
 // Route 1: getsale
-app.get("/v1/lingapos/store/:storeId/getsale", async (req, res) => {
+app.get("/lingapos/store/:storeId/getsale", async (req, res) => {
   const { storeId } = req.params;
   const { fromDate, toDate } = req.query;
 
@@ -42,8 +45,7 @@ app.get("/v1/lingapos/store/:storeId/getsale", async (req, res) => {
     });
     res.status(response.status).json(response.data);
   } catch (error) {
-    console.error("Error in /getsale:", error.message);
-    // Forward the original status code if available, otherwise 500
+    console.error("Error in /getsale (function):", error.message);
     res.status(error.response?.status || 500).json({
       message: "Failed to fetch sales data from external API",
       details: error.response?.data || error.message,
@@ -52,7 +54,7 @@ app.get("/v1/lingapos/store/:storeId/getsale", async (req, res) => {
 });
 
 // Route 2: discountReport
-app.get("/v1/lingapos/store/:storeId/discountReport", async (req, res) => {
+app.get("/lingapos/store/:storeId/discountReport", async (req, res) => {
   const { storeId } = req.params;
   const { dateOption, fromDate, toDate, selectedReportType } = req.query;
 
@@ -65,7 +67,7 @@ app.get("/v1/lingapos/store/:storeId/discountReport", async (req, res) => {
     });
     res.status(response.status).json(response.data);
   } catch (error) {
-    console.error("Error in /discountReport:", error.message);
+    console.error("Error in /discountReport (function):", error.message);
     res.status(error.response?.status || 500).json({
       message: "Failed to fetch discount report from external API",
       details: error.response?.data || error.message,
@@ -74,7 +76,7 @@ app.get("/v1/lingapos/store/:storeId/discountReport", async (req, res) => {
 });
 
 // Route 3: layout (Floors)
-app.get("/v1/lingapos/store/:storeId/layout", async (req, res) => {
+app.get("/lingapos/store/:storeId/layout", async (req, res) => {
   const { storeId } = req.params;
 
   try {
@@ -86,7 +88,7 @@ app.get("/v1/lingapos/store/:storeId/layout", async (req, res) => {
     });
     res.status(response.status).json(response.data);
   } catch (error) {
-    console.error("Error in /layout:", error.message);
+    console.error("Error in /layout (function):", error.message);
     res.status(error.response?.status || 500).json({
       message: "Failed to fetch layout data from external API",
       details: error.response?.data || error.message,
@@ -95,7 +97,7 @@ app.get("/v1/lingapos/store/:storeId/layout", async (req, res) => {
 });
 
 // Route 4: users
-app.get("/v1/lingapos/store/:storeId/users", async (req, res) => {
+app.get("/lingapos/store/:storeId/users", async (req, res) => {
   const { storeId } = req.params;
 
   try {
@@ -107,7 +109,7 @@ app.get("/v1/lingapos/store/:storeId/users", async (req, res) => {
     });
     res.status(response.status).json(response.data);
   } catch (error) {
-    console.error("Error in /users:", error.message);
+    console.error("Error in /users (function):", error.message);
     res.status(error.response?.status || 500).json({
       message: "Failed to fetch user data from external API",
       details: error.response?.data || error.message,
@@ -116,7 +118,7 @@ app.get("/v1/lingapos/store/:storeId/users", async (req, res) => {
 });
 
 // Route 5: saleReport (Menu Items)
-app.get("/v1/lingapos/store/:storeId/saleReport", async (req, res) => {
+app.get("/lingapos/store/:storeId/saleReport", async (req, res) => {
   const { storeId } = req.params;
   const {
     dateOption,
@@ -158,7 +160,7 @@ app.get("/v1/lingapos/store/:storeId/saleReport", async (req, res) => {
     });
     res.status(response.status).json(response.data);
   } catch (error) {
-    console.error("Error in /saleReport:", error.message);
+    console.error("Error in /saleReport (function):", error.message);
     res.status(error.response?.status || 500).json({
       message: "Failed to fetch sales report (menu) from external API",
       details: error.response?.data || error.message,
@@ -166,16 +168,36 @@ app.get("/v1/lingapos/store/:storeId/saleReport", async (req, res) => {
   }
 });
 
-// Fallback for any other /v1/ routes that are not explicitly defined
-app.use("/v1/*", (req, res) => {
-  res
-    .status(404)
-    .json({ message: "API endpoint not found in Netlify Function." });
+// Route 6: saleSummaryReport (NEWLY ADDED)
+app.get("/lingapos/store/:storeId/saleSummaryReport", async (req, res) => {
+  const { storeId } = req.params;
+  const { dateOption, fromDate, toDate } = req.query;
+
+  try {
+    const externalApiUrl = `${LINGAPOS_BASE_URL}/v1/lingapos/store/${storeId}/saleSummaryReport?dateOption=${dateOption}&fromDate=${fromDate}&toDate=${toDate}`;
+    const response = await axios.get(externalApiUrl, {
+      headers: {
+        apikey: LINGAPOS_API_KEY,
+      },
+    });
+    res.status(response.status).json(response.data);
+  } catch (error) {
+    console.error("Error in /saleSummaryReport (function):", error.message);
+    res.status(error.response?.status || 500).json({
+      message: "Failed to fetch sale summary report from external API",
+      details: error.response?.data || error.message,
+    });
+  }
 });
 
-// Catch-all for any other routes not handled by Express
-app.use((req, res) => {
-  res.status(404).json({ message: "API endpoint not found (catch-all)." });
+// Catch-all for any other routes not handled by Express within this function
+// (This will catch paths that start with /v1/ but don't match your defined routes)
+app.use("*", (req, res) => {
+  res
+    .status(404)
+    .json({
+      message: `API endpoint ${req.originalUrl} not found in Netlify Function.`,
+    });
 });
 
 // This is the essential part for Netlify Functions to work with Express

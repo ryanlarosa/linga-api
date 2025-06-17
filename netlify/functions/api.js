@@ -2,37 +2,34 @@
 
 const express = require("express");
 const serverless = require("serverless-http");
-const axios = require("axios"); // For making HTTP requests to the external API
-const cors = require("cors"); // For handling Cross-Origin Resource Sharing
+const axios = require("axios");
+const cors = require("cors");
 
 const app = express();
 
-// IMPORTANT: Replace with your actual Lingapos API Key (ideally from Netlify environment variables)
 const LINGAPOS_API_KEY =
   process.env.LINGAPOS_API_KEY || "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr";
+const LINGAPOS_BASE_URL = "https://api.lingaros.com";
 
-// IMPORTANT: Replace with the actual base URL of the external Lingapos API
-// Ensure this is the correct, public endpoint for the Lingapos API itself.
-const LINGAPOS_BASE_URL = "https://api.lingaros.com"; // Verified this from your package.json proxy
+app.use(cors({ origin: true, credentials: true }));
+app.use(express.json());
 
-// Configure CORS for your Netlify Function
-// This allows your Netlify-deployed frontend to talk to this function.
-// For production, you should restrict origins to your specific Netlify frontend URL.
-app.use(
-  cors({
-    origin: true, // Allows all origins for simplicity, but tighten this for production (e.g., 'https://your-site-name.netlify.app')
-    credentials: true, // If you're using cookies or authorization headers
-  })
-);
-
-app.use(express.json()); // To parse JSON request bodies if needed
+// --- GLOBAL DEBUGGING LOG ---
+// This will log the path that Express *receives* within the Netlify Function
+app.use((req, res, next) => {
+  console.log(`[Function Debug] Incoming request path: ${req.path}`);
+  console.log(`[Function Debug] Original URL: ${req.originalUrl}`);
+  next();
+});
 
 // --- Define your API routes here (WITHOUT THE LEADING /v1) ---
-// Because netlify.toml maps /v1/* to this function's root (/.netlify/functions/api/:splat),
-// the :splat passes the path *after* /v1/ directly to Express.
+// Frontend calls: /v1/lingapos/store/:storeId/getsale
+// Netlify redirect: /v1/* -> /.netlify/functions/api/:splat
+// Express route should match :splat -> /lingapos/store/:storeId/getsale
 
 // Route 1: getsale
 app.get("/lingapos/store/:storeId/getsale", async (req, res) => {
+  console.log("[Function Debug] Matched /getsale route");
   const { storeId } = req.params;
   const { fromDate, toDate } = req.query;
 
@@ -55,6 +52,7 @@ app.get("/lingapos/store/:storeId/getsale", async (req, res) => {
 
 // Route 2: discountReport
 app.get("/lingapos/store/:storeId/discountReport", async (req, res) => {
+  console.log("[Function Debug] Matched /discountReport route");
   const { storeId } = req.params;
   const { dateOption, fromDate, toDate, selectedReportType } = req.query;
 
@@ -77,6 +75,7 @@ app.get("/lingapos/store/:storeId/discountReport", async (req, res) => {
 
 // Route 3: layout (Floors)
 app.get("/lingapos/store/:storeId/layout", async (req, res) => {
+  console.log("[Function Debug] Matched /layout route");
   const { storeId } = req.params;
 
   try {
@@ -98,6 +97,7 @@ app.get("/lingapos/store/:storeId/layout", async (req, res) => {
 
 // Route 4: users
 app.get("/lingapos/store/:storeId/users", async (req, res) => {
+  console.log("[Function Debug] Matched /users route");
   const { storeId } = req.params;
 
   try {
@@ -119,6 +119,7 @@ app.get("/lingapos/store/:storeId/users", async (req, res) => {
 
 // Route 5: saleReport (Menu Items)
 app.get("/lingapos/store/:storeId/saleReport", async (req, res) => {
+  console.log("[Function Debug] Matched /saleReport route");
   const { storeId } = req.params;
   const {
     dateOption,
@@ -136,7 +137,6 @@ app.get("/lingapos/store/:storeId/saleReport", async (req, res) => {
   } = req.query;
 
   try {
-    // Reconstruct query parameters for the external API call
     const queryParams = new URLSearchParams({
       dateOption,
       employeeGroup,
@@ -168,8 +168,9 @@ app.get("/lingapos/store/:storeId/saleReport", async (req, res) => {
   }
 });
 
-// Route 6: saleSummaryReport (NEWLY ADDED)
+// Route 6: saleSummaryReport
 app.get("/lingapos/store/:storeId/saleSummaryReport", async (req, res) => {
+  console.log("[Function Debug] Matched /saleSummaryReport route");
   const { storeId } = req.params;
   const { dateOption, fromDate, toDate } = req.query;
 
@@ -190,12 +191,14 @@ app.get("/lingapos/store/:storeId/saleSummaryReport", async (req, res) => {
   }
 });
 
-// Catch-all for any other routes not handled by Express within this function
-// (This will catch paths that start with /v1/ but don't match your defined routes)
+// Catch-all for any other routes that are not explicitly defined within this function
 app.use("*", (req, res) => {
-  res.status(404).json({
-    message: `API endpoint ${req.originalUrl} not found in Netlify Function.`,
-  });
+  console.log(`[Function Debug] No route matched for path: ${req.path}`);
+  res
+    .status(404)
+    .json({
+      message: `API endpoint ${req.path} not found in Netlify Function.`,
+    }); // Changed message to show req.path
 });
 
 // This is the essential part for Netlify Functions to work with Express

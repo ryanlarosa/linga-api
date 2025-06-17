@@ -201,15 +201,7 @@ const DataFetcher = ({ user, onLogout }) => {
       !data.floors ||
       data.floors.length === 0 ||
       !data.users ||
-      data.users.length === 0 ||
-      !data.saleDetails ||
-      data.saleDetails.length === 0 ||
-      !data.menus ||
-      data.menus.length === 0 ||
-      !data.detailedMenu ||
-      data.detailedMenu.length === 0 ||
-      !data.saleSummary ||
-      data.saleSummary.length === 0
+      data.users.length === 0
     ) {
       setError("No Data to Export. Please fetch data first.");
       console.error("Export aborted: Data missing or empty.");

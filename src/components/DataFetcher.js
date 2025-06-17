@@ -1,4 +1,3 @@
-// DataFetcher.js
 import React, { useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
@@ -14,7 +13,7 @@ const DataFetcher = ({ user, onLogout }) => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [selectedStore, setSelectedStore] = useState(
-    "64a7fd77e6251d77d453b0f5" // Default store ID
+    "64a7fd77e6251d77d453b0f5"
   );
 
   function formatDate(date) {
@@ -54,10 +53,9 @@ const DataFetcher = ({ user, onLogout }) => {
     const newToDate = e.target.valueAsDate;
     setToDate(newToDate);
   };
-
   const handleLogoutClick = () => {
-    onLogout(null); // Clear user state in App.js
-    navigate("/login"); // Redirect to login screen
+    onLogout(null); // Update user state to null on logout
+    navigate("/login");
   };
 
   const fetchData = async () => {
@@ -68,39 +66,42 @@ const DataFetcher = ({ user, onLogout }) => {
       const formattedFromDate = formatDate(fromDate);
       const formattedToDate = formatDate(toDate);
 
-      // Array of promises for all API calls
-      const apiPromises = [
-        axios.get(
-          `/v1/lingapos/store/${selectedStore}/getsale?fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
-          {
-            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-          }
-        ),
-        axios.get(
-          `/v1/lingapos/store/${selectedStore}/discountReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}&selectedReportType=By Discount Type`,
-          {
-            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-          }
-        ),
-        axios.get(`/v1/lingapos/store/${selectedStore}/layout`, {
+      const promise1 = axios.get(
+        `/v1/lingapos/store/${selectedStore}/getsale?fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
+        {
           headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }),
-        axios.get(`/v1/lingapos/store/${selectedStore}/users`, {
+        }
+      );
+      const promise2 = axios.get(
+        `/v1/lingapos/store/${selectedStore}/discountReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}&selectedReportType=By Discount Type`,
+        {
           headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }),
-        axios.get(
-          `/v1/lingapos/store/${selectedStore}/saleReport?dateOption=DR&employeeGroup=N&fromDate=${formattedFromDate}&toDate=${formattedToDate}&isDetailedView=false&numberOfDay=&page=1&reportType=&selectedEmployee=&selectedItemId=&specificDate=&type=MENUITEM`,
-          {
-            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-          }
-        ),
-        axios.get(
-          `v1/lingapos/store/${selectedStore}/saleSummaryReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
-          {
-            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-          }
-        ),
-      ];
+        }
+      );
+      const promiseFloor = axios.get(
+        `/v1/lingapos/store/${selectedStore}/layout`,
+        {
+          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+        }
+      );
+      const promiseUsers = axios.get(
+        `/v1/lingapos/store/${selectedStore}/users`,
+        {
+          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+        }
+      );
+      const promiseMenu = axios.get(
+        `/v1/lingapos/store/${selectedStore}/saleReport?dateOption=DR&employeeGroup=N&${formattedFromDate}&toDate=${formattedToDate}&isDetailedView=false&numberOfDay=&page=1&reportType=&selectedEmployee=&selectedItemId=&specificDate=&type=MENUITEM`,
+        {
+          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+        }
+      );
+      const promiseSaleSummary = axios.get(
+        `v1/lingapos/store/${selectedStore}/saleSummaryReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
+        {
+          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+        }
+      );
 
       const [
         response1,
@@ -109,9 +110,15 @@ const DataFetcher = ({ user, onLogout }) => {
         responseUsers,
         responseMenu,
         responseSaleSummary,
-      ] = await Promise.all(apiPromises);
+      ] = await Promise.all([
+        promise1,
+        promise2,
+        promiseFloor,
+        promiseUsers,
+        promiseMenu,
+        promiseSaleSummary,
+      ]);
 
-      // Check responses for success status (200)
       if (response1.status !== 200)
         throw new Error(`Failed to fetch sales data: ${response1.statusText}`);
       if (response2.status !== 200)
@@ -130,25 +137,25 @@ const DataFetcher = ({ user, onLogout }) => {
         throw new Error(
           `Failed to fetch menu data: ${responseMenu.statusText}`
         );
+
       if (responseSaleSummary.status !== 200)
         throw new Error(
-          `Failed to fetch sale summary data: ${responseSaleSummary.statusText}`
+          `Failed to fetch menu data: ${responseMenu.responseSaleSummary}`
         );
 
-      // CONSOLIDATE ALL ITEMS IN THE ORDERS
+      // Extract all orders into a single array, including saleId
       const allOrders = [];
+      let totalGross = 0; // Initialize total gross amount
+
       response1.data.sales.forEach((sale) => {
         if (sale.orders) {
           sale.orders.forEach((order) => {
             allOrders.push({
               ...order,
               saleId: sale.ticketNo,
-              // 'discount' and 'saleDate' are already directly from sale.orders if existing,
-              // but if you meant from the main sale object, ensure logic here.
-              // Based on your original code, it seems you want sale's ticketNo and startDate:
-              saleDate: sale.startDate, // Attach the sale's startDate to the order
-              saleDiscount: sale.discountsStr, // Attach the sale's overall discount to the order
+              saleDate: sale.startDate,
             });
+            totalGross += parseFloat(order.grossAmountStr || "0");
           });
         }
       });
@@ -158,21 +165,21 @@ const DataFetcher = ({ user, onLogout }) => {
         saleDetails: response2.data,
         floors: responseFloor.data.floors,
         users: responseUsers.data,
-        menus: responseMenu.data.data, // This is the aggregated menu report
-        detailedMenu: allOrders, // This is the detailed breakdown of orders
-        saleSummary: responseSaleSummary.data, // The new sale summary data
+        menus: responseMenu.data.data,
+        detailedMenu: allOrders,
+        totalGrossAmount: totalGross.toFixed(2),
+        saleSummary: responseSaleSummary.data,
       });
 
-      console.log("Sales Data:", response1.data);
-      console.log("Discount Data:", response2.data);
-      console.log("Floor Data:", responseFloor.data);
-      console.log("Users Data:", responseUsers.data);
-      console.log("Menu Data:", responseMenu.data);
-      console.log("Sale Summary Data:", responseSaleSummary.data);
-      console.log("All Consolidated Orders (Detailed Menu):", allOrders);
+      console.log(response1.data);
+      console.log(response2.data);
+      console.log(responseFloor.data);
+      console.log(responseUsers.data);
+      console.log(responseMenu.data);
+      console.log(responseSaleSummary.data);
+      console.log(allOrders);
     } catch (err) {
-      console.error("Error fetching data:", err);
-      setError(err.message || "An error occurred fetching data.");
+      setError(err.message || "An error occurred.");
       setData(null);
     } finally {
       setLoading(false);
@@ -187,19 +194,13 @@ const DataFetcher = ({ user, onLogout }) => {
       !data.floors ||
       data.floors.length === 0 ||
       !data.users ||
-      data.users.length === 0 ||
-      !data.saleSummary || // Check for saleSummary data
-      data.saleSummary.length === 0
+      data.users.length === 0
     ) {
       setError("No Data to Export");
       return;
     }
 
-    const formattedFromDate = formatDate(fromDate);
-    const formattedToDate = formatDate(toDate);
-    const filename = `SalesData_${formattedFromDate}_to_${formattedToDate}.xlsx`;
-
-    const extractedData1_Sales = data.sales.map((item) => {
+    const extractedData1 = data.sales.map((item) => {
       const saleDate = new Date(item.startDate);
       const day = String(saleDate.getDate()).padStart(2, "0");
       const month = String(saleDate.getMonth() + 1).padStart(2, "0");
@@ -219,10 +220,17 @@ const DataFetcher = ({ user, onLogout }) => {
         data.users.find((user) => user.id === item.saleCloseEmployee)?.name ||
         "Unknown";
 
-      // Find corresponding summary data for netSales, discounts, totalTax
-      const summaryForTicket = data.saleSummary.find(
-        (summaryItem) => summaryItem.ticketNo === item.ticketNo
-      );
+      const netSales =
+        data.saleSummary.find(
+          (sales) =>
+            sales.ticketNo === item.ticketNo && sales.saleNo === item.saleNo
+        )?.netSales || "0.00";
+      const discounts =
+        data.saleSummary.find((sales) => sales.ticketNo === item.ticketNo)
+          ?.discounts || "0.00";
+      const totalTax =
+        data.saleSummary.find((sales) => sales.ticketNo === item.ticketNo)
+          ?.totalTaxAmount || "0.00";
 
       return {
         Store: selectedStoreName,
@@ -231,10 +239,13 @@ const DataFetcher = ({ user, onLogout }) => {
         Sale_Open_Time: item.saleOpenTime,
         Floor: floorName,
         Table_No: item.tableNo,
-        Net_Sales: summaryForTicket?.netSales || "0.00", // Use from saleSummary
-        Total_Tax: summaryForTicket?.totalTaxAmount || "0.00", // Use from saleSummary
-        Discount: summaryForTicket?.discounts || "0.00", // Use from saleSummary
-        Gross_Receipt: item.grossReceiptStr, // Assuming this is correct from original sales object
+        //Net_Sales_old: item.netSalesStr,
+        Net_Sales: netSales,
+        //Total_Tax: item.totalTaxAmountStr,
+        Total_Tax: totalTax,
+        //Discount: item.discountsStr,
+        Discount: discounts,
+        Gross_Receipt: item.grossReceiptStr,
         Closed_By: closedBy,
         Server_Name: createdBy,
         Guest_Count: item.guestCount,
@@ -245,7 +256,7 @@ const DataFetcher = ({ user, onLogout }) => {
     const filteredDiscountData = data.saleDetails.filter(
       (item) => item.check !== "Total"
     );
-    const extractedData2_Discounts = filteredDiscountData.map((item) => {
+    const extractedData2 = filteredDiscountData.map((item) => {
       return {
         Approved_By: item.approvedBy,
         Check: item.check,
@@ -257,40 +268,29 @@ const DataFetcher = ({ user, onLogout }) => {
         Discount_Type: item.discountType,
         Gross_Sales: item.grossSalesStr,
         Is_Total: item.isTotal,
-        // Menu_Items is empty for check-based discounts, kept as is
-        // percent, quantity, totalDiscounts are in your data but commented out in previous map.
-        // Uncomment if you need them in the Excel output
-        // Percent: item.percent,
-        // Quantity: item.quantity,
+        Menu_Items: item.menuItems,
+        Percent: item.percent,
+        Quantity: item.quantity,
         Reason: item.reason,
-        // Total_Discounts: item.totalDiscounts,
+        Total_Discounts: item.totalDiscounts,
       };
     });
 
-    // New extraction for aggregated menu summary
-    const extractedData3_MenuSummary = data.menus.map((item) => ({
-      BusinessDate: item.businessDate,
-      Quantity: item.quantity,
-      Item_Id: item.itemId,
-      Menu_Item: item.name,
-      // Add other relevant fields from data.menus if needed
-    }));
-
-    const extractedData4_MenuItemDetailed = data.detailedMenu.map((item) => {
-      // Ensure saleDate is available in item, potentially from consolidated allOrders
+    const extractedData3 = data.detailedMenu.map((item) => {
       const saleDate = new Date(item.saleDate);
       const day = String(saleDate.getDate()).padStart(2, "0");
       const month = String(saleDate.getMonth() + 1).padStart(2, "0");
       const year = saleDate.getFullYear();
       const formattedDate = `${day}-${month}-${year}`;
+      const orderMin = String(item.orderMin).padStart(2, 0);
 
-      const orderMin = String(item.orderMin).padStart(2, "0"); // Pad min with 0
       const voidBy =
-        data.users.find((u) => u.id === item.voidByEmployee)?.name || "Unknown";
+        data.users.find((user) => user.id === item.voidByEmployee)?.name ||
+        "Unknown";
 
       return {
         Order_Date: formattedDate,
-        Order_Hour: `${item.orderHour}:${orderMin}`, // Assuming orderHour and orderMin are present
+        Order_Hour: `${item.orderHour}:${orderMin}`,
         Ticket_No: item.saleId,
         Department: item.departmentName,
         CategoryName: item.categoryName,
@@ -305,34 +305,23 @@ const DataFetcher = ({ user, onLogout }) => {
       };
     });
 
-    const worksheet1 = XLSX.utils.json_to_sheet(extractedData1_Sales);
-    const worksheet2 = XLSX.utils.json_to_sheet(extractedData2_Discounts);
-    const worksheet3 = XLSX.utils.json_to_sheet(extractedData3_MenuSummary);
-    const worksheet4 = XLSX.utils.json_to_sheet(
-      extractedData4_MenuItemDetailed
-    );
-
+    const worksheet1 = XLSX.utils.json_to_sheet(extractedData1);
+    const worksheet2 = XLSX.utils.json_to_sheet(extractedData2);
+    const worksheet3 = XLSX.utils.json_to_sheet(extractedData3);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet1, "SalesData");
     XLSX.utils.book_append_sheet(workbook, worksheet2, "DiscountData");
-    XLSX.utils.book_append_sheet(workbook, worksheet3, "MenuItemSummary");
-    XLSX.utils.book_append_sheet(workbook, worksheet4, "MenuItemDetailed");
-
-    XLSX.writeFile(workbook, filename);
+    XLSX.utils.book_append_sheet(workbook, worksheet3, "MenuItemDetailed");
+    XLSX.writeFile(workbook, `SalesData.xlsx`);
   };
 
   return (
     <div className="data-fetcher-container">
       <div className="data-fetcher">
         <h2>Data Fetcher</h2>
-        {/* Always show the logout button */}
-        <button onClick={handleLogoutClick}>Logout</button>
-
-        {/* Conditional rendering for admin-specific controls */}
-        {user && user.role === "admin" ? (
-          <>
+        <div>
+          {user.role === "admin" && (
             <div>
-              {/* This div for store selection will be hidden for 'user' role */}
               <label htmlFor="store">Store:</label>
               <select
                 id="store"
@@ -346,33 +335,22 @@ const DataFetcher = ({ user, onLogout }) => {
                 ))}
               </select>
             </div>
-            {/* The rest of the date inputs and fetch button */}
-            <label>From Date:</label>
-            <input
-              type="date"
-              value={formatDateForInput(fromDate)}
-              onChange={handleFromDateChange}
-            />
+          )}
+          <label>From Date:</label>
+          <input
+            type="date"
+            value={formatDateForInput(fromDate)}
+            onChange={handleFromDateChange}
+          />
 
-            <label>To Date:</label>
-            <input
-              type="date"
-              value={formatDateForInput(toDate)}
-              onChange={handleToDateChange}
-            />
-            <button onClick={fetchData}>Fetch Data</button>
-          </>
-        ) : (
-          // Message for non-admin users
-          user &&
-          user.role === "user" && (
-            <p className="user-message">
-              You are logged in as a regular user. Please contact an
-              administrator for full access to store selection and data fetching
-              controls.
-            </p>
-          )
-        )}
+          <label>To Date:</label>
+          <input
+            type="date"
+            value={formatDateForInput(toDate)}
+            onChange={handleToDateChange}
+          />
+          <button onClick={fetchData}>Fetch Data</button>
+        </div>
 
         {loading && (
           <div className="loading-container">
@@ -380,13 +358,13 @@ const DataFetcher = ({ user, onLogout }) => {
           </div>
         )}
 
-        {error && <p className="error-message">{error}</p>}
-        {/* Export button should be available if data is loaded, regardless of role */}
+        {error && <p>{error}</p>}
         {!loading && data && (
           <div>
             <button onClick={exportToExcel}>Export to Excel</button>
           </div>
         )}
+        <button onClick={handleLogoutClick}>Logout</button>
       </div>
     </div>
   );

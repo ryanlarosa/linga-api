@@ -1,3 +1,4 @@
+// DataFetcher.js
 import React, { useState } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
@@ -15,6 +16,8 @@ const DataFetcher = ({ user, onLogout }) => {
   const [selectedStore, setSelectedStore] = useState(
     "64a7fd77e6251d77d453b0f5"
   );
+  // State for date range warning message
+  const [dateRangeWarning, setDateRangeWarning] = useState(null);
 
   function formatDate(date) {
     const day = String(date.getDate()).padStart(2, "0");
@@ -47,61 +50,75 @@ const DataFetcher = ({ user, onLogout }) => {
   const handleFromDateChange = (e) => {
     const newFromDate = e.target.valueAsDate;
     setFromDate(newFromDate);
+    // Clear warning if dates become the same or a new range is selected
+    if (newFromDate.getTime() === toDate.getTime()) {
+      setDateRangeWarning(null);
+    } else {
+      setDateRangeWarning(
+        "Date ranges might cause issues with the external API."
+      );
+    }
   };
 
   const handleToDateChange = (e) => {
     const newToDate = e.target.valueAsDate;
     setToDate(newToDate);
+    // Clear warning if dates become the same or a new range is selected
+    if (newToDate.getTime() === fromDate.getTime()) {
+      setDateRangeWarning(null);
+    } else {
+      setDateRangeWarning(
+        "Date ranges might cause issues with the external API."
+      );
+    }
   };
+
   const handleLogoutClick = () => {
-    onLogout(null); // Update user state to null on logout
+    onLogout(null);
     navigate("/login");
   };
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
+    setDateRangeWarning(null); // Clear any existing warning on fetch attempt
 
     try {
       const formattedFromDate = formatDate(fromDate);
       const formattedToDate = formatDate(toDate);
 
-      const promise1 = axios.get(
-        `/v1/lingapos/store/${selectedStore}/getsale?fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
-        {
+      const apiPromises = [
+        axios.get(
+          `/v1/lingapos/store/${selectedStore}/getsale?fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
+          {
+            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+          }
+        ),
+        axios.get(
+          `/v1/lingapos/store/${selectedStore}/discountReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}&selectedReportType=By Discount Type`,
+          {
+            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+          }
+        ),
+        axios.get(`/v1/lingapos/store/${selectedStore}/layout`, {
           headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }
-      );
-      const promise2 = axios.get(
-        `/v1/lingapos/store/${selectedStore}/discountReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}&selectedReportType=By Discount Type`,
-        {
+        }),
+        axios.get(`/v1/lingapos/store/${selectedStore}/users`, {
           headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }
-      );
-      const promiseFloor = axios.get(
-        `/v1/lingapos/store/${selectedStore}/layout`,
-        {
-          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }
-      );
-      const promiseUsers = axios.get(
-        `/v1/lingapos/store/${selectedStore}/users`,
-        {
-          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }
-      );
-      const promiseMenu = axios.get(
-        `/v1/lingapos/store/${selectedStore}/saleReport?dateOption=DR&employeeGroup=N&${formattedFromDate}&toDate=${formattedToDate}&isDetailedView=false&numberOfDay=&page=1&reportType=&selectedEmployee=&selectedItemId=&specificDate=&type=MENUITEM`,
-        {
-          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }
-      );
-      const promiseSaleSummary = axios.get(
-        `v1/lingapos/store/${selectedStore}/saleSummaryReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
-        {
-          headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
-        }
-      );
+        }),
+        axios.get(
+          `/v1/lingapos/store/${selectedStore}/saleReport?dateOption=DR&employeeGroup=N&fromDate=${formattedFromDate}&toDate=${formattedToDate}&isDetailedView=false&numberOfDay=&page=1&reportType=&selectedEmployee=&selectedItemId=&specificDate=&type=MENUITEM`,
+          {
+            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+          }
+        ),
+        axios.get(
+          `/v1/lingapos/store/${selectedStore}/saleSummaryReport?dateOption=DR&fromDate=${formattedFromDate}&toDate=${formattedToDate}`,
+          {
+            headers: { apikey: "UiSg7JagVOd42IEwAnctfWS6qSTaKxxr" },
+          }
+        ),
+      ];
 
       const [
         response1,
@@ -110,14 +127,7 @@ const DataFetcher = ({ user, onLogout }) => {
         responseUsers,
         responseMenu,
         responseSaleSummary,
-      ] = await Promise.all([
-        promise1,
-        promise2,
-        promiseFloor,
-        promiseUsers,
-        promiseMenu,
-        promiseSaleSummary,
-      ]);
+      ] = await Promise.all(apiPromises);
 
       if (response1.status !== 200)
         throw new Error(`Failed to fetch sales data: ${response1.statusText}`);
@@ -137,16 +147,12 @@ const DataFetcher = ({ user, onLogout }) => {
         throw new Error(
           `Failed to fetch menu data: ${responseMenu.statusText}`
         );
-
       if (responseSaleSummary.status !== 200)
         throw new Error(
-          `Failed to fetch menu data: ${responseMenu.responseSaleSummary}`
+          `Failed to fetch sale summary data: ${responseSaleSummary.statusText}`
         );
 
-      // Extract all orders into a single array, including saleId
       const allOrders = [];
-      let totalGross = 0; // Initialize total gross amount
-
       response1.data.sales.forEach((sale) => {
         if (sale.orders) {
           sale.orders.forEach((order) => {
@@ -154,8 +160,8 @@ const DataFetcher = ({ user, onLogout }) => {
               ...order,
               saleId: sale.ticketNo,
               saleDate: sale.startDate,
+              saleDiscount: sale.discountsStr,
             });
-            totalGross += parseFloat(order.grossAmountStr || "0");
           });
         }
       });
@@ -167,19 +173,39 @@ const DataFetcher = ({ user, onLogout }) => {
         users: responseUsers.data,
         menus: responseMenu.data.data,
         detailedMenu: allOrders,
-        totalGrossAmount: totalGross.toFixed(2),
         saleSummary: responseSaleSummary.data,
       });
 
-      console.log(response1.data);
-      console.log(response2.data);
-      console.log(responseFloor.data);
-      console.log(responseUsers.data);
-      console.log(responseMenu.data);
-      console.log(responseSaleSummary.data);
-      console.log(allOrders);
+      console.log("--- Data State After Fetch ---");
+      console.log("Sales Data:", response1.data);
+      console.log("Discount Data:", response2.data);
+      console.log("Floor Data:", responseFloor.data);
+      console.log("Users Data:", responseUsers.data);
+      console.log("Menu Data:", responseMenu.data);
+      console.log("Sale Summary Data:", responseSaleSummary.data);
+      console.log("All Consolidated Orders (Detailed Menu):", allOrders);
+      console.log("--- End Data State Debug ---");
     } catch (err) {
-      setError(err.message || "An error occurred.");
+      console.error("Error fetching data:", err);
+      let errorMessage = err.message || "An error occurred fetching data.";
+
+      if (
+        axios.isAxiosError(err) &&
+        err.response &&
+        err.response.status === 502
+      ) {
+        errorMessage =
+          "Failed to fetch data: External API (lingaros.com) returned a Bad Gateway (502) error. This often happens with date ranges. Please try a single day or contact API provider.";
+      } else if (
+        axios.isAxiosError(err) &&
+        err.response &&
+        err.response.status === 404
+      ) {
+        errorMessage =
+          "Failed to fetch data: API endpoint not found (404). Check console for details or contact support.";
+      }
+
+      setError(errorMessage);
       setData(null);
     } finally {
       setLoading(false);
@@ -187,6 +213,8 @@ const DataFetcher = ({ user, onLogout }) => {
   };
 
   const exportToExcel = () => {
+    console.log("exportToExcel called. Current data state:", data);
+
     if (
       !data ||
       !data.sales ||
@@ -194,13 +222,28 @@ const DataFetcher = ({ user, onLogout }) => {
       !data.floors ||
       data.floors.length === 0 ||
       !data.users ||
-      data.users.length === 0
+      data.users.length === 0 ||
+      !data.saleDetails ||
+      data.saleDetails.length === 0 ||
+      !data.menus ||
+      data.menus.length === 0 ||
+      !data.detailedMenu ||
+      data.detailedMenu.length === 0 ||
+      !data.saleSummary ||
+      data.saleSummary.length === 0
     ) {
-      setError("No Data to Export");
+      setError("No Data to Export. Please fetch data first.");
+      console.error(
+        "Export aborted: Data missing or empty for one or more sheets."
+      );
       return;
     }
 
-    const extractedData1 = data.sales.map((item) => {
+    const formattedFromDate = formatDate(fromDate);
+    const formattedToDate = formatDate(toDate);
+    const filename = `SalesData_${formattedFromDate}_to_${formattedToDate}.xlsx`;
+
+    const extractedData1_Sales = data.sales.map((item) => {
       const saleDate = new Date(item.startDate);
       const day = String(saleDate.getDate()).padStart(2, "0");
       const month = String(saleDate.getMonth() + 1).padStart(2, "0");
@@ -214,38 +257,29 @@ const DataFetcher = ({ user, onLogout }) => {
         "Unknown Store";
 
       const createdBy =
-        data.users.find((user) => user.id === item.employee)?.name || "Unknown";
+        data.users.find((u) => u.id === item.employee)?.name || "Unknown";
 
       const closedBy =
-        data.users.find((user) => user.id === item.saleCloseEmployee)?.name ||
+        data.users.find((u) => u.id === item.saleCloseEmployee)?.name ||
         "Unknown";
 
-      const netSales =
-        data.saleSummary.find(
-          (sales) =>
-            sales.ticketNo === item.ticketNo && sales.saleNo === item.saleNo
-        )?.netSales || "0.00";
-      const discounts =
-        data.saleSummary.find((sales) => sales.ticketNo === item.ticketNo)
-          ?.discounts || "0.00";
-      const totalTax =
-        data.saleSummary.find((sales) => sales.ticketNo === item.ticketNo)
-          ?.totalTaxAmount || "0.00";
+      const summaryForTicket = data.saleSummary.find(
+        (summaryItem) =>
+          summaryItem.ticketNo === item.ticketNo &&
+          summaryItem.saleNo === item.saleNo
+      );
 
       return {
         Store: selectedStoreName,
         Ticket_No: item.ticketNo,
         Customer_Name: item.customerName,
+        Net_Sales: summaryForTicket?.netSales || "0.00",
+        Total_Tax: summaryForTicket?.totalTaxAmount || "0.00",
+        Discount: summaryForTicket?.discounts || "0.00",
+        Gross_Receipt: item.grossReceiptStr,
         Sale_Open_Time: item.saleOpenTime,
         Floor: floorName,
         Table_No: item.tableNo,
-        //Net_Sales_old: item.netSalesStr,
-        Net_Sales: netSales,
-        //Total_Tax: item.totalTaxAmountStr,
-        Total_Tax: totalTax,
-        //Discount: item.discountsStr,
-        Discount: discounts,
-        Gross_Receipt: item.grossReceiptStr,
         Closed_By: closedBy,
         Server_Name: createdBy,
         Guest_Count: item.guestCount,
@@ -256,7 +290,7 @@ const DataFetcher = ({ user, onLogout }) => {
     const filteredDiscountData = data.saleDetails.filter(
       (item) => item.check !== "Total"
     );
-    const extractedData2 = filteredDiscountData.map((item) => {
+    const extractedData2_Discounts = filteredDiscountData.map((item) => {
       return {
         Approved_By: item.approvedBy,
         Check: item.check,
@@ -276,21 +310,27 @@ const DataFetcher = ({ user, onLogout }) => {
       };
     });
 
-    const extractedData3 = data.detailedMenu.map((item) => {
+    const extractedData3_MenuSummary = data.menus.map((item) => ({
+      BusinessDate: item.businessDate,
+      Quantity: item.quantity,
+      Item_Id: item.itemId,
+      Menu_Item: item.name,
+    }));
+
+    const extractedData4_MenuItemDetailed = data.detailedMenu.map((item) => {
       const saleDate = new Date(item.saleDate);
       const day = String(saleDate.getDate()).padStart(2, "0");
       const month = String(saleDate.getMonth() + 1).padStart(2, "0");
       const year = saleDate.getFullYear();
       const formattedDate = `${day}-${month}-${year}`;
-      const orderMin = String(item.orderMin).padStart(2, 0);
 
+      const orderMin = String(item.orderMin || 0).padStart(2, "0");
       const voidBy =
-        data.users.find((user) => user.id === item.voidByEmployee)?.name ||
-        "Unknown";
+        data.users.find((u) => u.id === item.voidByEmployee)?.name || "Unknown";
 
       return {
         Order_Date: formattedDate,
-        Order_Hour: `${item.orderHour}:${orderMin}`,
+        Order_Hour: `${item.orderHour || "00"}:${orderMin}`,
         Ticket_No: item.saleId,
         Department: item.departmentName,
         CategoryName: item.categoryName,
@@ -305,22 +345,30 @@ const DataFetcher = ({ user, onLogout }) => {
       };
     });
 
-    const worksheet1 = XLSX.utils.json_to_sheet(extractedData1);
-    const worksheet2 = XLSX.utils.json_to_sheet(extractedData2);
-    const worksheet3 = XLSX.utils.json_to_sheet(extractedData3);
+    const worksheet1 = XLSX.utils.json_to_sheet(extractedData1_Sales);
+    const worksheet2 = XLSX.utils.json_to_sheet(extractedData2_Discounts);
+    const worksheet3 = XLSX.utils.json_to_sheet(extractedData3_MenuSummary);
+    const worksheet4 = XLSX.utils.json_to_sheet(
+      extractedData4_MenuItemDetailed
+    );
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet1, "SalesData");
     XLSX.utils.book_append_sheet(workbook, worksheet2, "DiscountData");
-    XLSX.utils.book_append_sheet(workbook, worksheet3, "MenuItemDetailed");
-    XLSX.writeFile(workbook, `SalesData.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet3, "MenuItemSummary");
+    XLSX.utils.book_append_sheet(workbook, worksheet4, "MenuItemDetailed");
+
+    XLSX.writeFile(workbook, filename);
   };
 
   return (
     <div className="data-fetcher-container">
       <div className="data-fetcher">
         <h2>Data Fetcher</h2>
-        <div>
-          {user.role === "admin" && (
+        <button onClick={handleLogoutClick}>Logout</button>
+
+        {user && user.role === "admin" ? (
+          <>
             <div>
               <label htmlFor="store">Store:</label>
               <select
@@ -335,22 +383,38 @@ const DataFetcher = ({ user, onLogout }) => {
                 ))}
               </select>
             </div>
-          )}
-          <label>From Date:</label>
-          <input
-            type="date"
-            value={formatDateForInput(fromDate)}
-            onChange={handleFromDateChange}
-          />
+            <label>From Date:</label>
+            <input
+              type="date"
+              value={formatDateForInput(fromDate)}
+              onChange={handleFromDateChange}
+            />
 
-          <label>To Date:</label>
-          <input
-            type="date"
-            value={formatDateForInput(toDate)}
-            onChange={handleToDateChange}
-          />
-          <button onClick={fetchData}>Fetch Data</button>
-        </div>
+            <label>To Date:</label>
+            <input
+              type="date"
+              value={formatDateForInput(toDate)}
+              onChange={handleToDateChange}
+            />
+            {dateRangeWarning && (
+              <p
+                className="warning-message"
+                style={{ color: "orange", fontSize: "0.9em" }}
+              >
+                {dateRangeWarning}
+              </p>
+            )}
+            <button onClick={fetchData}>Fetch Data</button>
+          </>
+        ) : (
+          user &&
+          user.role === "user" && (
+            <p className="user-message">
+              You are logged in as a regular user. Please contact an
+              administrator for full access to data fetching controls.
+            </p>
+          )
+        )}
 
         {loading && (
           <div className="loading-container">
@@ -358,13 +422,12 @@ const DataFetcher = ({ user, onLogout }) => {
           </div>
         )}
 
-        {error && <p>{error}</p>}
+        {error && <p className="error-message">{error}</p>}
         {!loading && data && (
           <div>
             <button onClick={exportToExcel}>Export to Excel</button>
           </div>
         )}
-        <button onClick={handleLogoutClick}>Logout</button>
       </div>
     </div>
   );
